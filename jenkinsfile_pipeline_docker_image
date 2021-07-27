@@ -1,0 +1,28 @@
+Agenda: pipeline job to build and deploy docker image.
+..........................................................
+
+node{
+  def mavenHome = tool name: "maven3.6.3"
+  def buildNumber = BUILD_NUMBER
+ stage('Checkoutcode'){
+    git credentialsId: 'd56d514e-4f27-4a59-8a7c-9386d53cd062', url: 'https://github.com/devopstraining2021A/java-web-app-docker.git'
+    }
+ stage('Build'){
+    sh "${mavenHome}/bin/mvn clean package"
+    }
+ stage ("Build Docker Image"){
+   sh "docker build -t gsreddydocker4546/java-web-app-docker:${buildNumber} ."
+   }
+ stage("dockerlogin and push the image"){
+   withCredentials([string(credentialsId: 'Docker_Hub_Credentials', variable: 'Docker_Hub_Credentials')]) {
+   sh "docker login -u gsreddydocker4546 -p ${Docker_Hub_Credentials}" 
+   }
+   sh "docker push gsreddydocker4546/java-web-app-docker:${buildNumber}"
+   }
+ stage("deploy to docker server"){
+   sshagent(['Docker_dev_server']) {
+   sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.4.244 docker rm -f javawebapp || true"
+   sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.4.244 docker run -d -p 8080:8080 --name javawebapp gsreddydocker4546/java-web-app-docker:${buildNumber}"
+   }
+   }
+}
